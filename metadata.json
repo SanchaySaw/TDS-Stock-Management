@@ -1,0 +1,7 @@
+{
+  "name": "TDS Stock Management",
+  "description": "A premium, mobile-first inventory and sales management system for The Drink Stop, featuring automated stock deduction and menu-linked inventory logic.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
