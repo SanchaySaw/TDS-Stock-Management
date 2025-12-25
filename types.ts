@@ -8,6 +8,13 @@ export enum StockType {
 
 export type Unit = 'ml' | 'ltr' | 'gm' | 'kg' | 'pcs';
 
+export interface User {
+  id: string;
+  email: string;
+  password: string;
+  name?: string;
+}
+
 export interface StockItem {
   id: string;
   name: string;
@@ -41,6 +48,7 @@ export interface Sale {
 }
 
 export interface AppState {
+  users: User[];
   stock: StockItem[];
   menu: MenuItem[];
   sales: Sale[];

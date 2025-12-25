@@ -11,22 +11,26 @@ interface MenuManagementProps {
   deleteMenuItem: (id: string) => void;
 }
 
+// Internal type for the form to handle React keys correctly
+interface IngredientFormItem extends RecipeIngredient {
+  _id: string; // Temporary ID for form rendering
+}
+
 export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, addMenuItem, updateMenuItem, deleteMenuItem }) => {
   const [showAdd, setShowAdd] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [newItem, setNewItem] = useState<Omit<MenuItem, 'id'>>({
-    name: '',
-    imageUrl: 'https://images.unsplash.com/photo-1544145945-f904253d0c71?auto=format&fit=crop&q=80&w=400',
-    isActive: true,
-    ingredients: []
-  });
+  
+  // Local state for the complex "New Item" form
+  const [formName, setFormName] = useState('');
+  const [formImage, setFormImage] = useState('https://images.unsplash.com/photo-1544145945-f904253d0c71?auto=format&fit=crop&q=80&w=400');
+  const [formIngredients, setFormIngredients] = useState<IngredientFormItem[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewItem({ ...newItem, imageUrl: reader.result as string });
+        setFormImage(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -34,55 +38,63 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
 
   const addIngredientSlot = () => {
     if (stock.length === 0) {
-      alert("No Inventory! Add items in the Stock tab first before creating a recipe.");
+      alert("No Inventory! Add items in the Stock tab first.");
       return;
     }
-    setNewItem(prev => ({
-      ...prev,
-      ingredients: [...prev.ingredients, { stockItemId: stock[0].id, quantity: 1, unit: stock[0].unit }]
+    const newIngredient: IngredientFormItem = {
+      _id: Math.random().toString(36).substr(2, 9),
+      stockItemId: stock[0].id,
+      quantity: 1,
+      unit: stock[0].unit
+    };
+    setFormIngredients(prev => [...prev, newIngredient]);
+  };
+
+  const removeIngredientSlot = (id: string) => {
+    setFormIngredients(prev => prev.filter(ing => ing._id !== id));
+  };
+
+  const updateIngredientSlot = (id: string, updates: Partial<RecipeIngredient>) => {
+    setFormIngredients(prev => prev.map(ing => {
+      if (ing._id === id) {
+        const nextStockId = updates.stockItemId || ing.stockItemId;
+        const stockItem = stock.find(s => s.id === nextStockId);
+        return { 
+          ...ing, 
+          ...updates, 
+          unit: stockItem ? stockItem.unit : ing.unit 
+        };
+      }
+      return ing;
     }));
-  };
-
-  const removeIngredientSlot = (idx: number) => {
-    setNewItem(prev => {
-      const nextIng = [...prev.ingredients];
-      nextIng.splice(idx, 1);
-      return { ...prev, ingredients: nextIng };
-    });
-  };
-
-  const updateIngredientSlot = (idx: number, updates: Partial<RecipeIngredient>) => {
-    setNewItem(prev => {
-      const nextIng = [...prev.ingredients];
-      const stockItem = stock.find(s => s.id === (updates.stockItemId || nextIng[idx].stockItemId));
-      nextIng[idx] = { 
-        ...nextIng[idx], 
-        ...updates, 
-        unit: stockItem?.unit || nextIng[idx].unit 
-      };
-      return { ...prev, ingredients: nextIng };
-    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.name.trim()) {
+    if (!formName.trim()) {
       alert("Please enter a name for this drink.");
       return;
     }
-    if (newItem.ingredients.length === 0) {
+    if (formIngredients.length === 0) {
       alert("A recipe needs at least one ingredient. Click '+ Add Ingredient'.");
       return;
     }
     
-    addMenuItem(newItem);
-    setShowAdd(false);
-    setNewItem({
-      name: '',
-      imageUrl: 'https://images.unsplash.com/photo-1544145945-f904253d0c71?auto=format&fit=crop&q=80&w=400',
+    // Convert form items back to store items (strip _id)
+    const finalIngredients: RecipeIngredient[] = formIngredients.map(({ _id, ...rest }) => ({ ...rest }));
+
+    addMenuItem({
+      name: formName,
+      imageUrl: formImage,
       isActive: true,
-      ingredients: []
+      ingredients: finalIngredients
     });
+
+    // Reset Form
+    setShowAdd(false);
+    setFormName('');
+    setFormImage('https://images.unsplash.com/photo-1544145945-f904253d0c71?auto=format&fit=crop&q=80&w=400');
+    setFormIngredients([]);
   };
 
   return (
@@ -105,7 +117,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-[32px] border border-tds-green/10 space-y-6 animate-in slide-in-from-top-4 shadow-xl">
           <div className="space-y-4">
              <div className="relative w-full h-40 rounded-2xl bg-tds-cream overflow-hidden border border-tds-green/10 group">
-                <img src={newItem.imageUrl} className="w-full h-full object-cover" alt="Drink Preview" />
+                <img src={formImage} className="w-full h-full object-cover" alt="Drink Preview" />
                 <div 
                   onClick={() => fileInputRef.current?.click()}
                   className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -121,8 +133,8 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
                 <input 
                   type="text" 
                   className="w-full bg-tds-cream/50 border border-tds-green/10 p-3 rounded-xl outline-none focus:border-tds-gold font-bold text-tds-deep placeholder:font-normal"
-                  value={newItem.name}
-                  onChange={e => setNewItem({...newItem, name: e.target.value})}
+                  value={formName}
+                  onChange={e => setFormName(e.target.value)}
                   placeholder="e.g. Signature Mocha"
                   required
                 />
@@ -142,13 +154,13 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
              </div>
              
              <div className="space-y-2">
-               {newItem.ingredients.map((ing, idx) => (
-                  <div key={idx} className="flex gap-2 items-center bg-tds-cream/20 p-2 rounded-2xl border border-tds-green/5 animate-in fade-in slide-in-from-right-2">
+               {formIngredients.map((ing) => (
+                  <div key={ing._id} className="flex gap-2 items-center bg-tds-cream/20 p-2 rounded-2xl border border-tds-green/5 animate-in fade-in slide-in-from-right-2">
                      <div className="flex-1">
                         <select 
                           className="w-full bg-white border border-tds-green/10 p-2.5 rounded-xl text-xs outline-none font-medium"
                           value={ing.stockItemId}
-                          onChange={e => updateIngredientSlot(idx, { stockItemId: e.target.value })}
+                          onChange={e => updateIngredientSlot(ing._id, { stockItemId: e.target.value })}
                         >
                            {stock.map(s => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
                         </select>
@@ -159,20 +171,20 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
                           placeholder="Qty"
                           className="w-full bg-white border border-tds-green/10 p-2.5 rounded-xl text-xs outline-none text-center font-bold"
                           value={ing.quantity || ''}
-                          onChange={e => updateIngredientSlot(idx, { quantity: Number(e.target.value) })}
+                          onChange={e => updateIngredientSlot(ing._id, { quantity: Number(e.target.value) || 0 })}
                           required
                         />
                      </div>
                      <button 
                       type="button" 
-                      onClick={() => removeIngredientSlot(idx)} 
+                      onClick={() => removeIngredientSlot(ing._id)} 
                       className="p-2.5 text-tds-red bg-white border border-tds-red/10 rounded-xl active:scale-90 transition-all"
                      >
                        {ICONS.Trash}
                      </button>
                   </div>
                ))}
-               {newItem.ingredients.length === 0 && (
+               {formIngredients.length === 0 && (
                  <div className="py-6 text-center bg-tds-cream/10 rounded-2xl border-2 border-dashed border-tds-green/5 text-[10px] text-tds-green/30 uppercase font-black tracking-widest">
                     Empty Recipe
                  </div>
@@ -229,11 +241,12 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ menu, stock, add
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-1.5">
-                  {item.ingredients.map(ing => {
+                  {item.ingredients.map((ing, idx) => {
                     const s = stock.find(st => st.id === ing.stockItemId);
+                    // Use composite key for display to avoid duplicate key warnings if same stock item used twice
                     return (
-                      <span key={ing.stockItemId} className="text-[9px] bg-tds-cream text-tds-green px-2 py-0.5 rounded-full font-black border border-tds-green/5 uppercase tracking-tighter">
-                        {ing.quantity}{s?.unit || 'u'} {s?.name || 'Item'}
+                      <span key={`${ing.stockItemId}-${idx}`} className="text-[9px] bg-tds-cream text-tds-green px-2 py-0.5 rounded-full font-black border border-tds-green/5 uppercase tracking-tighter">
+                        {ing.quantity}{s?.unit || ing.unit} {s?.name || 'Item'}
                       </span>
                     );
                   })}

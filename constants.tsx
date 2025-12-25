@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Download,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Mail,
+  Lock
 } from 'lucide-react';
 
 export const COLORS = {
@@ -39,7 +41,9 @@ export const ICONS = {
   ArrowRight: <ChevronRight size={20} />,
   Download: <Download size={20} />,
   Success: <CheckCircle2 size={20} />,
-  Error: <XCircle size={20} />
+  Error: <XCircle size={20} />,
+  Mail: <Mail size={18} />,
+  Lock: <Lock size={18} />
 };
 
 export const INITIAL_STOCK: any[] = [

@@ -1,9 +1,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { AppState, StockItem, MenuItem, Sale } from './types';
+import { AppState, StockItem, MenuItem, Sale, User } from './types';
 import { INITIAL_STOCK, INITIAL_MENU } from './constants';
 
-const STORAGE_KEY = 'tds_stock_mgmt_v10_final';
+const STORAGE_KEY = 'tds_stock_mgmt_v11_auth';
 
 const getInitialState = (): AppState => {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -11,6 +11,7 @@ const getInitialState = (): AppState => {
     try {
       const parsed = JSON.parse(saved);
       return {
+        users: Array.isArray(parsed.users) ? parsed.users : [],
         stock: Array.isArray(parsed.stock) ? parsed.stock : JSON.parse(JSON.stringify(INITIAL_STOCK)),
         menu: Array.isArray(parsed.menu) ? parsed.menu : JSON.parse(JSON.stringify(INITIAL_MENU)),
         sales: Array.isArray(parsed.sales) ? parsed.sales : []
@@ -20,6 +21,7 @@ const getInitialState = (): AppState => {
     }
   }
   return {
+    users: [],
     stock: JSON.parse(JSON.stringify(INITIAL_STOCK)),
     menu: JSON.parse(JSON.stringify(INITIAL_MENU)),
     sales: []
@@ -35,6 +37,7 @@ export function useTdsStore() {
 
   const forceReset = useCallback(() => {
     const freshState = {
+      users: state.users,
       stock: JSON.parse(JSON.stringify(INITIAL_STOCK)),
       menu: JSON.parse(JSON.stringify(INITIAL_MENU)),
       sales: []
@@ -42,6 +45,18 @@ export function useTdsStore() {
     setState(freshState);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(freshState));
     setTimeout(() => window.location.reload(), 100);
+  }, [state.users]);
+
+  const registerUser = useCallback((user: Omit<User, 'id'>) => {
+    const newUser = { 
+      ...user, 
+      id: 'u' + Date.now() + Math.random().toString(36).substr(2, 4) 
+    };
+    setState(prev => ({
+      ...prev,
+      users: [...(prev.users || []), newUser]
+    }));
+    return newUser;
   }, []);
 
   const addStockItem = useCallback((item: Omit<StockItem, 'id'>) => {
@@ -76,9 +91,11 @@ export function useTdsStore() {
   }, []);
 
   const addMenuItem = useCallback((item: Omit<MenuItem, 'id'>) => {
+    // Crucial: Deep clone the ingredients array to avoid reference mutation
     const newItem = { 
       ...item, 
-      id: 'm' + Date.now() + Math.random().toString(36).substr(2, 4) 
+      id: 'm' + Date.now() + Math.random().toString(36).substr(2, 4),
+      ingredients: item.ingredients.map(ing => ({ ...ing }))
     };
     setState(prev => ({ 
       ...prev, 
@@ -138,6 +155,7 @@ export function useTdsStore() {
 
   return {
     ...state,
+    registerUser,
     addStockItem,
     updateStockQuantity,
     deleteStockItem,
